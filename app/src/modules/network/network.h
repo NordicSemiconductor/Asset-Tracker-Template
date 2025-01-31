@@ -143,7 +143,7 @@ struct network_msg {
 	};
 };
 
-#define MSG_TO_NETWORK_MSG(_msg)	(*(const struct network_msg *)_msg)
+#define MSG_TO_NETWORK_MSG(_msg)	((const struct network_msg *)_msg)
 
 
 #ifdef __cplusplus

@@ -340,7 +340,7 @@ static void state_running_run(void *obj)
 	LOG_DBG("state_running_run");
 
 	if (&NETWORK_CHAN == state_object->chan) {
-		struct network_msg msg = MSG_TO_NETWORK_MSG(state_object->msg_buf);
+		struct network_msg *msg = MSG_TO_NETWORK_MSG(state_object->msg_buf);
 
 		switch (msg.type) {
 		case NETWORK_DISCONNECTED:

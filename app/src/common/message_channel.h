@@ -120,12 +120,35 @@ struct configuration {
 
 #define MSG_TO_CONFIGURATION(_msg) ((const struct configuration *)_msg)
 
+enum led_msg_type {
+	LED_RGB_SET,
+};
+
+struct led_msg {
+	enum led_msg_type type;
+
+	/** RGB values (0 to 255) */
+	uint8_t red;
+	uint8_t green;
+	uint8_t blue;
+
+	/** Duration of the RGB on/off cycle */
+	uint32_t duration_on_msec;
+	uint32_t duration_off_msec;
+
+	/** Number of on/off cycles (-1 indicates forever) */
+	int repetitions;
+};
+
+#define MSG_TO_LED_MSG(_msg) ((const struct led_msg *)_msg)
+
 ZBUS_CHAN_DECLARE(
 	CONFIG_CHAN,
 	ERROR_CHAN,
 	TIME_CHAN,
 	ENVIRONMENTAL_CHAN,
-	TRIGGER_CHAN
+	TRIGGER_CHAN,
+	LED_CHAN,
 );
 
 #ifdef __cplusplus

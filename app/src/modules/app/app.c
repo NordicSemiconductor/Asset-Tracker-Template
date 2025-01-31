@@ -109,6 +109,9 @@ static struct state_object {
 
 	/* Cloud status */
 	enum cloud_msg_type status;
+
+	/* LED status */
+	bool led_disabled;
 } app_state;
 
 static void triggers_send(void)
@@ -210,6 +213,8 @@ static void disconnected_entry(void *o)
 
 	LOG_DBG("%s", __func__);
 
+	/** Send led pattern to led module */
+
 	k_work_cancel_delayable(&trigger_work);
 }
 
@@ -233,6 +238,8 @@ static void connected_entry(void *o)
 	ARG_UNUSED(o);
 
 	LOG_DBG("%s", __func__);
+
+	/** Send led pattern to led module */
 
 	k_work_reschedule(&trigger_work, K_NO_WAIT);
 }
