@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cloud Module State Machine Visualizer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .state-machine {
+            position: relative;
+            width: 800px;
+            height: 400px;
+            margin: 20px auto;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            background: white;
+        }
+        .state {
+            position: absolute;
+            width: 120px;
+            height: 50px;
+            border: 2px solid #666;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+            z-index: 2;
+        }
+        .state.active {
+            background: #4CAF50;
+            color: white;
+            border-color: #45a049;
+        }
+        .group {
+            position: absolute;
+            border: 2px dashed #999;
+            border-radius: 8px;
+            background: rgba(200,200,200,0.05);
+            z-index: 1;
+        }
+        .group.active {
+            border-color: #4CAF50;
+            background: rgba(76,175,80,0.05);
+        }
+        .state:hover {
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        }
+
+        /* Groups */
+        #running-group {
+            top: 90px;
+            left: 50px;
+            width: 700px;
+            height: 80px;
+        }
+        #connecting-group {
+            top: 210px;
+            left: 200px;
+            width: 280px;
+            height: 70px;
+        }
+        #connected-group {
+            top: 210px;
+            left: 500px;
+            width: 280px;
+            height: 70px;
+        }
+
+        /* States */
+        #running {
+            top: 20px;
+            left: 340px;
+        }
+        #disconnected {
+            top: 105px;
+            left: 80px;
+        }
+        #connecting {
+            top: 105px;
+            left: 280px;
+        }
+        #connected {
+            top: 105px;
+            left: 580px;
+        }
+        #connecting-attempt {
+            top: 220px;
+            left: 220px;
+        }
+        #connecting-backoff {
+            top: 220px;
+            left: 340px;
+        }
+        #connected-ready {
+            top: 220px;
+            left: 520px;
+        }
+        #connected-paused {
+            top: 220px;
+            left: 640px;
+        }
+
+        /* Connection lines */
+        .connection {
+            position: absolute;
+            background: #999;
+            z-index: 0;
+        }
+        .connection-vertical {
+            width: 2px;
+            height: 40px;
+        }
+        #conn-connecting {
+            top: 155px;
+            left: 340px;
+            height: 55px;
+        }
+        #conn-connected {
+            top: 155px;
+            left: 640px;
+            height: 55px;
+        }
+        
+        .log {
+            margin-top: 20px;
+            padding: 10px;
+            background: #333;
+            color: #fff;
+            border-radius: 4px;
+            height: 100px;
+            overflow-y: auto;
+        }
+        .description {
+            margin: 20px 0;
+            padding: 10px;
+            background: #e8f5e9;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Cloud Module State Machine Visualizer</h1>
+        
+        <div class="description">
+            This visualizer shows the cloud module's hierarchical state machine. Events are controlled from the system visualizer.
+        </div>
+
+        <div class="state-machine">
+            <!-- Groups -->
+            <div id="running-group" class="group"></div>
+            <div id="connecting-group" class="group"></div>
+            <div id="connected-group" class="group"></div>
+
+            <!-- Connection lines -->
+            <div id="conn-connecting" class="connection connection-vertical"></div>
+            <div id="conn-connected" class="connection connection-vertical"></div>
+
+            <!-- States -->
+            <div id="running" class="state">Running</div>
+            <div id="disconnected" class="state">Disconnected</div>
+            <div id="connecting" class="state">Connecting</div>
+            <div id="connected" class="state">Connected</div>
+            <div id="connecting-attempt" class="state">Attempt</div>
+            <div id="connecting-backoff" class="state">Backoff</div>
+            <div id="connected-ready" class="state">Ready</div>
+            <div id="connected-paused" class="state">Paused</div>
+        </div>
+
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        let currentState = 'disconnected';
+        let connectionAttempts = 0;
+        const states = new Set(['running', 'disconnected', 'connecting', 'connecting-attempt', 
+                              'connecting-backoff', 'connected', 'connected-ready', 'connected-paused']);
+        
+        function updateState(newState) {
+            if (!states.has(newState)) return;
+            
+            states.forEach(state => {
+                document.getElementById(state).classList.remove('active');
+            });
+            
+            // Always activate running state and group
+            document.getElementById('running').classList.add('active');
+            document.getElementById('running-group').classList.add('active');
+            
+            // Activate parent states based on current state
+            if (newState.startsWith('connecting-')) {
+                document.getElementById('connecting').classList.add('active');
+                document.getElementById('connecting-group').classList.add('active');
+            } else if (newState.startsWith('connected-')) {
+                document.getElementById('connected').classList.add('active');
+                document.getElementById('connected-group').classList.add('active');
+            }
+            
+            document.getElementById(newState).classList.add('active');
+            currentState = newState;
+            
+            log(`State changed to: ${newState}`);
+        }
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            logDiv.innerHTML += `${new Date().toLocaleTimeString()} - ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function simulateConnectionAttempt() {
+            if (currentState === 'disconnected') {
+                updateState('connecting');
+                setTimeout(() => {
+                    updateState('connecting-attempt');
+                    connectionAttempts++;
+                    log(`Connection attempt ${connectionAttempts}`);
+                }, 500);
+            }
+        }
+
+        function simulateConnectionFailure() {
+            if (currentState === 'connecting-attempt') {
+                updateState('connecting-backoff');
+                log('Connection failed, entering backoff');
+                setTimeout(() => {
+                    updateState('connecting-attempt');
+                    connectionAttempts++;
+                    log(`Connection attempt ${connectionAttempts}`);
+                }, 2000);
+            }
+        }
+
+        function simulateConnectionSuccess() {
+            if (currentState === 'connecting-attempt') {
+                updateState('connected');
+                setTimeout(() => {
+                    updateState('connected-ready');
+                    connectionAttempts = 0;
+                    log('Successfully connected to cloud');
+                }, 500);
+            }
+        }
+
+        function simulateNetworkDisconnect() {
+            if (currentState === 'connected-ready') {
+                updateState('connected-paused');
+                log('Network lost, connection paused');
+            }
+        }
+
+        function simulateNetworkReconnect() {
+            if (currentState === 'connected-paused') {
+                updateState('connected-ready');
+                log('Network restored, connection resumed');
+            }
+        }
+
+        function resetSimulation() {
+            connectionAttempts = 0;
+            updateState('disconnected');
+            document.getElementById('log').innerHTML = '';
+            log('Simulation reset');
+        }
+
+        // Handle messages from system visualizer
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'channel_event') {
+                const { channel, event: eventName } = event.data;
+                
+                if (channel === 'network') {
+                    if (eventName === 'NETWORK_CONNECTED') {
+                        if (currentState === 'disconnected') {
+                            simulateConnectionAttempt();
+                        } else if (currentState === 'connected-paused') {
+                            simulateNetworkReconnect();
+                        }
+                    } else if (eventName === 'NETWORK_DISCONNECTED') {
+                        if (currentState === 'connected-ready') {
+                            simulateNetworkDisconnect();
+                        }
+                    }
+                }
+                else if (channel === 'cloud') {
+                    if (eventName === 'CLOUD_READY') {
+                        simulateConnectionSuccess();
+                    } else if (eventName === 'CLOUD_PAUSED') {
+                        simulateNetworkDisconnect();
+                    }
+                }
+            } else if (event.data.type === 'reset') {
+                resetSimulation();
+            }
+        });
+
+        // Initialize
+        resetSimulation();
+    </script>
+</body>
+</html>

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Environmental Module State Machine Visualizer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .state-machine {
+            position: relative;
+            width: 800px;
+            height: 400px;
+            margin: 20px auto;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            background: white;
+        }
+        .state {
+            position: absolute;
+            width: 120px;
+            height: 50px;
+            border: 2px solid #666;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+            z-index: 2;
+        }
+        .state.active {
+            background: #4CAF50;
+            color: white;
+            border-color: #45a049;
+        }
+        .group {
+            position: absolute;
+            border: 2px dashed #999;
+            border-radius: 8px;
+            background: rgba(200,200,200,0.05);
+            z-index: 1;
+        }
+        .group.active {
+            border-color: #4CAF50;
+            background: rgba(76,175,80,0.05);
+        }
+        .state:hover {
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        }
+
+        /* Groups */
+        #running-group {
+            top: 90px;
+            left: 50px;
+            width: 700px;
+            height: 80px;
+        }
+        #sampling-group {
+            top: 210px;
+            left: 200px;
+            width: 400px;
+            height: 70px;
+        }
+
+        /* States */
+        #running {
+            top: 20px;
+            left: 340px;
+        }
+        #idle {
+            top: 105px;
+            left: 120px;
+        }
+        #sampling {
+            top: 105px;
+            left: 340px;
+        }
+        #error {
+            top: 105px;
+            left: 560px;
+        }
+        #sampling-start {
+            top: 220px;
+            left: 260px;
+        }
+        #sampling-wait {
+            top: 220px;
+            left: 460px;
+        }
+
+        /* Connection lines */
+        .connection {
+            position: absolute;
+            background: #999;
+            z-index: 0;
+        }
+        .connection-horizontal {
+            height: 2px;
+        }
+        .connection-vertical {
+            width: 2px;
+        }
+        #conn1 {
+            top: 130px;
+            left: 240px;
+            width: 100px;
+        }
+        #conn2 {
+            top: 130px;
+            left: 460px;
+            width: 100px;
+        }
+        #conn3 {
+            top: 155px;
+            left: 400px;
+            height: 55px;
+        }
+        
+        .log {
+            margin-top: 20px;
+            padding: 10px;
+            background: #333;
+            color: #fff;
+            border-radius: 4px;
+            height: 100px;
+            overflow-y: auto;
+        }
+        .description {
+            margin: 20px 0;
+            padding: 10px;
+            background: #e8f5e9;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Environmental Module State Machine Visualizer</h1>
+        
+        <div class="description">
+            This visualizer shows the environmental module's state machine. The module handles temperature and humidity sampling.
+        </div>
+
+        <div class="state-machine">
+            <!-- Groups -->
+            <div id="running-group" class="group"></div>
+            <div id="sampling-group" class="group"></div>
+
+            <!-- Connection lines -->
+            <div id="conn1" class="connection connection-horizontal"></div>
+            <div id="conn2" class="connection connection-horizontal"></div>
+            <div id="conn3" class="connection connection-vertical"></div>
+
+            <!-- States -->
+            <div id="running" class="state">Running</div>
+            <div id="idle" class="state">Idle</div>
+            <div id="sampling" class="state">Sampling</div>
+            <div id="error" class="state">Error</div>
+            <div id="sampling-start" class="state">Start</div>
+            <div id="sampling-wait" class="state">Wait</div>
+        </div>
+
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        let currentState = 'idle';
+        const states = new Set(['running', 'idle', 'sampling', 'error', 'sampling-start', 'sampling-wait']);
+        
+        function updateState(newState) {
+            if (!states.has(newState)) return;
+            
+            states.forEach(state => {
+                document.getElementById(state).classList.remove('active');
+            });
+            
+            // Always activate running state and group unless in error state
+            if (newState !== 'error') {
+                document.getElementById('running').classList.add('active');
+                document.getElementById('running-group').classList.add('active');
+            }
+            
+            // Activate sampling group if in a sampling state
+            if (newState.startsWith('sampling')) {
+                document.getElementById('sampling').classList.add('active');
+                document.getElementById('sampling-group').classList.add('active');
+            }
+            
+            document.getElementById(newState).classList.add('active');
+            currentState = newState;
+            
+            log(`State changed to: ${newState}`);
+        }
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            logDiv.innerHTML += `${new Date().toLocaleTimeString()} - ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function simulateSample() {
+            if (currentState === 'idle') {
+                updateState('sampling');
+                setTimeout(() => {
+                    updateState('sampling-start');
+                    log('Starting temperature and humidity sampling');
+                    setTimeout(() => {
+                        updateState('sampling-wait');
+                        log('Waiting for sensor data...');
+                        setTimeout(() => {
+                            const temp = (20 + Math.random() * 5).toFixed(1);
+                            const humidity = (50 + Math.random() * 20).toFixed(1);
+                            log(`Sample complete: ${temp}°C, ${humidity}% RH`);
+                            updateState('idle');
+                        }, 1000);
+                    }, 500);
+                }, 100);
+            }
+        }
+
+        function simulateError(type) {
+            updateState('error');
+            log(`Error occurred: ${type}`);
+            setTimeout(() => {
+                updateState('idle');
+                log('Recovered from error');
+            }, 2000);
+        }
+
+        function resetSimulation() {
+            updateState('idle');
+            document.getElementById('log').innerHTML = '';
+            log('Module initialized - ready for sampling');
+        }
+
+        // Handle messages from system visualizer
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'channel_event') {
+                const { channel, event: eventName } = event.data;
+                
+                if (channel === 'sample') {
+                    if (eventName === 'SAMPLE_REQUEST') {
+                        simulateSample();
+                    }
+                } else if (channel === 'error') {
+                    simulateError(eventName);
+                }
+            } else if (event.data.type === 'reset') {
+                resetSimulation();
+            }
+        });
+
+        // Initialize
+        resetSimulation();
+    </script>
+</body>
+</html>

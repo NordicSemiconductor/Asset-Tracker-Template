@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Network Module State Machine Visualizer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .state-machine {
+            position: relative;
+            width: 800px;
+            height: 400px;
+            margin: 20px auto;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            background: white;
+        }
+        .state {
+            position: absolute;
+            width: 120px;
+            height: 50px;
+            border: 2px solid #666;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+            z-index: 2;
+        }
+        .state.active {
+            background: #4CAF50;
+            color: white;
+            border-color: #45a049;
+        }
+        .group {
+            position: absolute;
+            border: 2px dashed #999;
+            border-radius: 8px;
+            background: rgba(200,200,200,0.05);
+            z-index: 1;
+        }
+        .group.active {
+            border-color: #4CAF50;
+            background: rgba(76,175,80,0.05);
+        }
+        .state:hover {
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        }
+
+        /* Groups */
+        #running-group {
+            top: 90px;
+            left: 50px;
+            width: 700px;
+            height: 80px;
+        }
+        #disconnected-group {
+            top: 210px;
+            left: 100px;
+            width: 280px;
+            height: 70px;
+        }
+
+        /* States */
+        #running {
+            top: 20px;
+            left: 340px;
+        }
+        #disconnected {
+            top: 105px;
+            left: 120px;
+        }
+        #connected {
+            top: 105px;
+            left: 340px;
+        }
+        #disconnecting {
+            top: 105px;
+            left: 560px;
+        }
+        #disconnected-idle {
+            top: 220px;
+            left: 120px;
+        }
+        #disconnected-searching {
+            top: 220px;
+            left: 240px;
+        }
+
+        /* Connection lines */
+        .connection {
+            position: absolute;
+            background: #999;
+            z-index: 0;
+        }
+        .connection-vertical {
+            width: 2px;
+            height: 40px;
+        }
+        #conn-disconnected {
+            top: 155px;
+            left: 180px;
+            height: 55px;
+        }
+        
+        .log {
+            margin-top: 20px;
+            padding: 10px;
+            background: #333;
+            color: #fff;
+            border-radius: 4px;
+            height: 100px;
+            overflow-y: auto;
+        }
+        .description {
+            margin: 20px 0;
+            padding: 10px;
+            background: #e8f5e9;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Network Module State Machine Visualizer</h1>
+        
+        <div class="description">
+            This visualizer shows the network module's hierarchical state machine. Events are controlled from the system visualizer.
+        </div>
+
+        <div class="state-machine">
+            <!-- Groups -->
+            <div id="running-group" class="group"></div>
+            <div id="disconnected-group" class="group"></div>
+
+            <!-- Connection lines -->
+            <div id="conn-disconnected" class="connection connection-vertical"></div>
+
+            <!-- States -->
+            <div id="running" class="state">Running</div>
+            <div id="disconnected" class="state">Disconnected</div>
+            <div id="connected" class="state">Connected</div>
+            <div id="disconnecting" class="state">Disconnecting</div>
+            <div id="disconnected-idle" class="state">Idle</div>
+            <div id="disconnected-searching" class="state">Searching</div>
+        </div>
+
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        let currentState = 'disconnected-idle';
+        const states = new Set(['running', 'disconnected', 'disconnected-idle', 
+                              'disconnected-searching', 'connected', 'disconnecting']);
+        
+        function updateState(newState) {
+            if (!states.has(newState)) return;
+            
+            states.forEach(state => {
+                document.getElementById(state).classList.remove('active');
+            });
+            
+            // Always activate running state and group
+            document.getElementById('running').classList.add('active');
+            document.getElementById('running-group').classList.add('active');
+            
+            // Activate parent states based on current state
+            if (newState.startsWith('disconnected-')) {
+                document.getElementById('disconnected').classList.add('active');
+                document.getElementById('disconnected-group').classList.add('active');
+            }
+            
+            document.getElementById(newState).classList.add('active');
+            currentState = newState;
+            
+            log(`State changed to: ${newState}`);
+        }
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            logDiv.innerHTML += `${new Date().toLocaleTimeString()} - ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function simulateConnect() {
+            if (currentState === 'disconnected-idle') {
+                updateState('disconnected-searching');
+                log('Searching for network...');
+                setTimeout(() => {
+                    updateState('connected');
+                    log('Network connection established');
+                }, 2000);
+            }
+        }
+
+        function simulateDisconnect() {
+            if (currentState === 'connected') {
+                updateState('disconnecting');
+                log('Disconnecting from network...');
+                setTimeout(() => {
+                    updateState('disconnected-idle');
+                    log('Network disconnected');
+                }, 1000);
+            }
+        }
+
+        function simulateSearchStop() {
+            if (currentState === 'disconnected-searching') {
+                updateState('disconnected-idle');
+                log('Network search stopped');
+            }
+        }
+
+        function simulateUICC() {
+            updateState('disconnected-idle');
+            log('UICC failure detected');
+        }
+
+        function resetSimulation() {
+            updateState('disconnected-idle');
+            document.getElementById('log').innerHTML = '';
+            log('Simulation reset');
+        }
+
+        // Handle messages from system visualizer
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'channel_event') {
+                const { channel, event: eventName } = event.data;
+                
+                if (channel === 'network') {
+                    switch (eventName) {
+                        case 'NETWORK_CONNECT':
+                            if (currentState === 'disconnected-idle') {
+                                simulateConnect();
+                            }
+                            break;
+                        case 'NETWORK_SEARCH_STOP':
+                            simulateSearchStop();
+                            break;
+                        case 'NETWORK_UICC_FAILURE':
+                            simulateUICC();
+                            break;
+                        case 'NETWORK_DISCONNECTED':
+                            if (currentState === 'connected') {
+                                simulateDisconnect();
+                            }
+                            break;
+                    }
+                }
+            } else if (event.data.type === 'reset') {
+                resetSimulation();
+            }
+        });
+
+        // Initialize
+        resetSimulation();
+    </script>
+</body>
+</html>
