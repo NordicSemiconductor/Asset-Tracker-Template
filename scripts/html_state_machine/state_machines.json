@@ -1,0 +1,120 @@
+{
+    "app": {
+      "name": "app",
+      "states": {
+        "INIT": {
+          "name": "INIT",
+          "description": "Initial state where the module waits for time to be available",
+          "parent": null
+        },
+        "CLOUD_CONNECTED": {
+          "name": "CLOUD_CONNECTED",
+          "description": "Cloud connection is established and ready to send data",
+          "parent": null
+        },
+        "CLOUD_DISCONNECTED": {
+          "name": "CLOUD_DISCONNECTED",
+          "description": "Cloud connection is not established or paused",
+          "parent": null
+        }
+      },
+      "transitions": [
+        {
+          "from": "INIT",
+          "to": "CLOUD_CONNECTED",
+          "triggers": ["CLOUD_CONNECTED_READY_TO_SEND"]
+        },
+        {
+          "from": "INIT",
+          "to": "CLOUD_DISCONNECTED",
+          "triggers": ["CLOUD_DISCONNECTED", "CLOUD_CONNECTED_PAUSED"]
+        },
+        {
+          "from": "CLOUD_DISCONNECTED",
+          "to": "CLOUD_CONNECTED",
+          "triggers": ["CLOUD_CONNECTED_READY_TO_SEND"]
+        },
+        {
+          "from": "CLOUD_CONNECTED",
+          "to": "CLOUD_DISCONNECTED",
+          "triggers": ["CLOUD_CONNECTED_PAUSED", "CLOUD_DISCONNECTED"]
+        }
+      ],
+      "events": [
+        "CLOUD_CONNECTED_PAUSED",
+        "CLOUD_CONNECTED_READY_TO_SEND",
+        "CLOUD_DISCONNECTED"
+      ]
+    },
+    "fota": {
+      "name": "fota",
+      "states": {
+        "RUNNING": {
+          "name": "RUNNING",
+          "description": "During initialization, check for pending jobs and process them",
+          "parent": null,
+          "children": ["WAIT_FOR_CLOUD", "WAIT_FOR_TRIGGER", "POLL_AND_PROCESS", "REBOOT_PENDING"]
+        },
+        "WAIT_FOR_CLOUD": {
+          "name": "WAIT_FOR_CLOUD",
+          "description": "FOTA module is initialized and waiting for cloud connection",
+          "parent": "RUNNING"
+        },
+        "WAIT_FOR_TRIGGER": {
+          "name": "WAIT_FOR_TRIGGER",
+          "description": "FOTA module is waiting for a trigger to poll for updates",
+          "parent": "RUNNING"
+        },
+        "POLL_AND_PROCESS": {
+          "name": "POLL_AND_PROCESS",
+          "description": "FOTA module is polling for updates and processing them",
+          "parent": "RUNNING"
+        },
+        "REBOOT_PENDING": {
+          "name": "REBOOT_PENDING",
+          "description": "nRF Cloud FOTA library has requested a reboot to complete an update",
+          "parent": "RUNNING"
+        }
+      },
+      "transitions": [
+        {
+          "from": "RUNNING",
+          "to": "WAIT_FOR_CLOUD",
+          "triggers": []
+        },
+        {
+          "from": "WAIT_FOR_CLOUD",
+          "to": "WAIT_FOR_TRIGGER",
+          "triggers": ["CLOUD_CONNECTED_READY_TO_SEND"]
+        },
+        {
+          "from": "WAIT_FOR_TRIGGER",
+          "to": "WAIT_FOR_CLOUD",
+          "triggers": ["CLOUD_CONNECTED_PAUSED"]
+        },
+        {
+            "from": "WAIT_FOR_TRIGGER",
+            "to": "POLL_AND_PROCESS",
+            "triggers": ["TRIGGER_FOTA_POLL"]
+          },
+        {
+          "from": "POLL_AND_PROCESS",
+          "to": "WAIT_FOR_TRIGGER",
+          "triggers": ["FOTA_PRIV_PROCESSING_DONE"]
+        },
+        {
+          "from": "POLL_AND_PROCESS",
+          "to": "REBOOT_PENDING",
+          "triggers": ["FOTA_PRIV_REBOOT_PENDING"]
+        }
+      ],
+      "events": [
+        "CLOUD_CONNECTED_READY_TO_SEND",
+        "TRIGGER_FOTA_POLL",
+        "CLOUD_CONNECTED_PAUSED",
+        "FOTA_PRIV_PROCESSING_DONE",
+        "FOTA_PRIV_REBOOT_PENDING"
+      ]
+    }
+  }
+  

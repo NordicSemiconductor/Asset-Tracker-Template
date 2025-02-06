@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>App & FOTA State Machine Visualizer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .module {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            background: white;
+            min-height: 300px;
+        }
+        .module h2 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #333;
+        }
+        .state-machine {
+            position: relative;
+            width: 100%;
+            height: 200px;
+            margin: 10px 0;
+        }
+        .state {
+            position: absolute;
+            width: 80px;
+            height: 35px;
+            border: 2px solid #666;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background: white;
+            font-size: 12px;
+            z-index: 2;
+        }
+        .state.active {
+            background: #4CAF50;
+            color: white;
+            border-color: #45a049;
+        }
+        .log {
+            margin-top: 10px;
+            padding: 5px;
+            background: #333;
+            color: #fff;
+            border-radius: 4px;
+            height: 60px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        .controls {
+            margin: 20px 0;
+            padding: 10px;
+            background: #e8f5e9;
+            border-radius: 4px;
+        }
+        .control-group {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .control-group h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #333;
+        }
+        button {
+            margin: 5px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+            font-family: monospace;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        
+        /* App Module States */
+        .app-init { top: 50%; left: 20%; transform: translate(-50%, -50%); }
+        .app-cloud-disconnected { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .app-cloud-connected { top: 50%; left: 80%; transform: translate(-50%, -50%); }
+        
+        /* FOTA Module States */
+        .fota-running { top: 10px; left: 50%; transform: translate(-50%, 0); }
+        .fota-wait-for-cloud { top: 60px; left: 20%; transform: translate(-50%, 0); }
+        .fota-wait-for-trigger { top: 60px; left: 50%; transform: translate(-50%, 0); }
+        .fota-poll-and-process { top: 110px; left: 50%; transform: translate(-50%, 0); }
+        .fota-reboot-pending { top: 60px; left: 80%; transform: translate(-50%, 0); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>App & FOTA State Machine Visualizer</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <h3>Cloud Events</h3>
+                <button onclick="triggerEvent('CLOUD_CONNECTED_READY_TO_SEND')">CLOUD_CONNECTED_READY_TO_SEND</button>
+                <button onclick="triggerEvent('CLOUD_CONNECTED_PAUSED')">CLOUD_CONNECTED_PAUSED</button>
+                <button onclick="triggerEvent('CLOUD_DISCONNECTED')">CLOUD_DISCONNECTED</button>
+            </div>
+
+            <div class="control-group">
+                <h3>FOTA Events</h3>
+                <button onclick="triggerEvent('TRIGGER_FOTA_POLL')">TRIGGER_FOTA_POLL</button>
+                <button onclick="triggerEvent('FOTA_PRIV_PROCESSING_DONE')">FOTA_PRIV_PROCESSING_DONE</button>
+                <button onclick="triggerEvent('FOTA_PRIV_REBOOT_PENDING')">FOTA_PRIV_REBOOT_PENDING</button>
+            </div>
+
+            <div class="control-group">
+                <h3>System Control</h3>
+                <button onclick="resetAll()">Reset All</button>
+            </div>
+        </div>
+
+        <div class="grid">
+            <!-- App Module -->
+            <div class="module" id="app-module">
+                <h2>App Module</h2>
+                <div class="state-machine">
+                    <div class="state app-init">INIT</div>
+                    <div class="state app-cloud-disconnected">DISCONNECTED</div>
+                    <div class="state app-cloud-connected">CONNECTED</div>
+                </div>
+                <div class="log" id="app-log"></div>
+            </div>
+
+            <!-- FOTA Module -->
+            <div class="module" id="fota-module">
+                <h2>FOTA Module</h2>
+                <div class="state-machine">
+                    <div class="state fota-running">RUNNING</div>
+                    <div class="state fota-wait-for-cloud">WAIT CLOUD</div>
+                    <div class="state fota-wait-for-trigger">WAIT TRIGGER</div>
+                    <div class="state fota-poll-and-process">PROCESSING</div>
+                    <div class="state fota-reboot-pending">REBOOT</div>
+                </div>
+                <div class="log" id="fota-log"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const stateMachines = {
+            app: {
+                currentState: 'STATE_INIT',
+                states: {
+                    "STATE_INIT": {
+                        transitions: [
+                            {
+                                to: "STATE_CLOUD_CONNECTED",
+                                event: "CLOUD_CONNECTED_READY_TO_SEND"
+                            },
+                            {
+                                to: "STATE_CLOUD_DISCONNECTED",
+                                event: "CLOUD_DISCONNECTED"
+                            }
+                        ]
+                    },
+                    "STATE_CLOUD_CONNECTED": {
+                        transitions: [
+                            {
+                                to: "STATE_CLOUD_DISCONNECTED",
+                                event: "CLOUD_CONNECTED_PAUSED"
+                            },
+                            {
+                                to: "STATE_CLOUD_DISCONNECTED",
+                                event: "CLOUD_DISCONNECTED"
+                            }
+                        ]
+                    },
+                    "STATE_CLOUD_DISCONNECTED": {
+                        transitions: [
+                            {
+                                to: "STATE_CLOUD_CONNECTED",
+                                event: "CLOUD_CONNECTED_READY_TO_SEND"
+                            }
+                        ]
+                    }
+                }
+            },
+            fota: {
+                currentState: 'STATE_RUNNING',
+                states: {
+                    "STATE_RUNNING": {
+                        transitions: [
+                            {
+                                to: "STATE_WAIT_FOR_CLOUD",
+                                event: "INIT"
+                            }
+                        ]
+                    },
+                    "STATE_WAIT_FOR_CLOUD": {
+                        transitions: [
+                            {
+                                to: "STATE_WAIT_FOR_TRIGGER",
+                                event: "CLOUD_CONNECTED_READY_TO_SEND"
+                            }
+                        ]
+                    },
+                    "STATE_WAIT_FOR_TRIGGER": {
+                        transitions: [
+                            {
+                                to: "STATE_POLL_AND_PROCESS",
+                                event: "TRIGGER_FOTA_POLL"
+                            },
+                            {
+                                to: "STATE_WAIT_FOR_CLOUD",
+                                event: "CLOUD_CONNECTED_PAUSED"
+                            }
+                        ]
+                    },
+                    "STATE_POLL_AND_PROCESS": {
+                        transitions: [
+                            {
+                                to: "STATE_WAIT_FOR_TRIGGER",
+                                event: "FOTA_PRIV_PROCESSING_DONE"
+                            },
+                            {
+                                to: "STATE_REBOOT_PENDING",
+                                event: "FOTA_PRIV_REBOOT_PENDING"
+                            }
+                        ]
+                    },
+                    "STATE_REBOOT_PENDING": {
+                        transitions: []
+                    }
+                }
+            }
+        };
+
+        function log(module, message) {
+            const logDiv = document.getElementById(`${module}-log`);
+            logDiv.innerHTML += `${new Date().toLocaleTimeString()} - ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateState(machine, newState) {
+            const module = machine === 'app' ? 'app' : 'fota';
+            const prefix = `${module}-`;
+            
+            // Remove active class from all states
+            document.querySelectorAll(`.${prefix}init, .${prefix}cloud-disconnected, .${prefix}cloud-connected, 
+                                    .${prefix}running, .${prefix}wait-for-cloud, .${prefix}wait-for-trigger, 
+                                    .${prefix}poll-and-process, .${prefix}reboot-pending`)
+                .forEach(el => el.classList.remove('active'));
+            
+            // Add active class to new state
+            let displayState = newState.toLowerCase().replace('state_', '');
+            if (module === 'app') {
+                displayState = displayState.replace('cloud_', 'cloud-');
+            } else {
+                displayState = displayState.replace(/_/g, '-');
+            }
+            
+            const stateEl = document.querySelector(`.${prefix}${displayState}`);
+            if (stateEl) {
+                stateEl.classList.add('active');
+                stateMachines[machine].currentState = newState;
+                log(module, `State changed to: ${newState}`);
+            }
+        }
+
+        function triggerEvent(event) {
+            // Try app state machine first
+            const appCurrentState = stateMachines.app.currentState;
+            const appTransitions = stateMachines.app.states[appCurrentState].transitions;
+            const appTransition = appTransitions.find(t => t.event === event);
+            
+            if (appTransition) {
+                updateState('app', appTransition.to);
+            }
+            
+            // Try FOTA state machine
+            const fotaCurrentState = stateMachines.fota.currentState;
+            const fotaTransitions = stateMachines.fota.states[fotaCurrentState].transitions;
+            const fotaTransition = fotaTransitions.find(t => t.event === event);
+            
+            if (fotaTransition) {
+                updateState('fota', fotaTransition.to);
+            }
+            
+            if (!appTransition && !fotaTransition) {
+                log('app', `Invalid event for current state: ${event}`);
+                log('fota', `Invalid event for current state: ${event}`);
+            }
+        }
+
+        function resetAll() {
+            updateState('app', 'STATE_INIT');
+            updateState('fota', 'STATE_RUNNING');
+            
+            document.querySelectorAll('.log').forEach(log => {
+                log.innerHTML = '';
+            });
+            
+            log('app', 'App module reset');
+            log('fota', 'FOTA module reset');
+            
+            // Initialize FOTA to WAIT_FOR_CLOUD after a brief delay
+            setTimeout(() => {
+                triggerEvent('INIT');
+            }, 500);
+        }
+
+        // Initialize
+        resetAll();
+    </script>
+</body>
+</html>

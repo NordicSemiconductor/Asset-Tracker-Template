@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>State Machine Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .module {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            background: white;
+            min-height: 400px;
+        }
+        .module h2 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #333;
+        }
+        .state-machine {
+            position: relative;
+            width: 100%;
+            height: 400px;
+            margin: 10px 0;
+        }
+        .state {
+            position: absolute;
+            width: 160px;
+            height: 45px;
+            border: 2px solid #666;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background: white;
+            font-size: 12px;
+            z-index: 2;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            user-select: none;
+            padding: 0 5px;
+        }
+        .state.active {
+            background: #4CAF50;
+            color: white;
+            border-color: #45a049;
+        }
+        .state-group {
+            position: absolute;
+            border: 2px dashed #666;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.02);
+        }
+        .log {
+            margin-top: 10px;
+            padding: 5px;
+            background: #333;
+            color: #fff;
+            border-radius: 4px;
+            height: 60px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        .controls {
+            margin: 20px 0;
+            padding: 10px;
+            background: #e8f5e9;
+            border-radius: 4px;
+        }
+        .control-group {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .control-group h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #333;
+        }
+        button {
+            margin: 5px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>State Machine Viewer</h1>
+
+        <div class="controls">
+            <div class="control-group">
+                <h3>APP Events</h3>
+                <button onclick="triggerEvent('app', 'CLOUD_CONNECTED_PAUSED')">CLOUD_CONNECTED_PAUSED</button>
+                <button onclick="triggerEvent('app', 'CLOUD_CONNECTED_READY_TO_SEND')">CLOUD_CONNECTED_READY_TO_SEND</button>
+                <button onclick="triggerEvent('app', 'CLOUD_DISCONNECTED')">CLOUD_DISCONNECTED</button>
+            </div>
+            <div class="control-group">
+                <h3>FOTA Events</h3>
+                <button onclick="triggerEvent('fota', 'CLOUD_CONNECTED_READY_TO_SEND')">CLOUD_CONNECTED_READY_TO_SEND</button>
+                <button onclick="triggerEvent('fota', 'TRIGGER_FOTA_POLL')">TRIGGER_FOTA_POLL</button>
+                <button onclick="triggerEvent('fota', 'CLOUD_CONNECTED_PAUSED')">CLOUD_CONNECTED_PAUSED</button>
+                <button onclick="triggerEvent('fota', 'FOTA_PRIV_PROCESSING_DONE')">FOTA_PRIV_PROCESSING_DONE</button>
+                <button onclick="triggerEvent('fota', 'FOTA_PRIV_REBOOT_PENDING')">FOTA_PRIV_REBOOT_PENDING</button>
+            </div>
+            <div class="control-group">
+                <h3>System Control</h3>
+                <button onclick="resetAll()">Reset All</button>
+            </div>
+        </div>
+        <div class="grid">
+            <div class="module" id="app">
+                <h2>APP</h2>
+                <div class="state-machine">
+                    <div class="state" 
+                        data-state="INIT"
+                        onclick="handleStateClick('app', 'INIT')"
+                        style="left: 220.0px; top: 57.5px;">
+                        INIT
+                    </div>
+                    <div class="state" 
+                        data-state="CLOUD_CONNECTED"
+                        onclick="handleStateClick('app', 'CLOUD_CONNECTED')"
+                        style="left: 323.92304845413264px; top: 237.5px;">
+                        CLOUD_CONNECTED
+                    </div>
+                    <div class="state" 
+                        data-state="CLOUD_DISCONNECTED"
+                        onclick="handleStateClick('app', 'CLOUD_DISCONNECTED')"
+                        style="left: 116.07695154586739px; top: 237.50000000000006px;">
+                        CLOUD_DISCONNECTED
+                    </div>
+                </div>
+                <div class="log" id="app-log"></div>
+            </div>
+            <div class="module" id="fota">
+                <h2>FOTA</h2>
+                <div class="state-machine">
+                    <div class="state-group" style="
+                    left: 120px;
+                    top: 180px;
+                    width: 360px;
+                    height: 180px;">
+                </div>
+                    <div class="state" 
+                        data-state="RUNNING"
+                        onclick="handleStateClick('fota', 'RUNNING')"
+                        style="left: 220px; top: 57.5px;">
+                        RUNNING
+                    </div>
+                    <div class="state" 
+                        data-state="WAIT_FOR_CLOUD"
+                        onclick="handleStateClick('fota', 'WAIT_FOR_CLOUD')"
+                        style="left: 340px; top: 177.5px;">
+                        WAIT_FOR_CLOUD
+                    </div>
+                    <div class="state" 
+                        data-state="WAIT_FOR_TRIGGER"
+                        onclick="handleStateClick('fota', 'WAIT_FOR_TRIGGER')"
+                        style="left: 340px; top: 297.5px;">
+                        WAIT_FOR_TRIGGER
+                    </div>
+                    <div class="state" 
+                        data-state="POLL_AND_PROCESS"
+                        onclick="handleStateClick('fota', 'POLL_AND_PROCESS')"
+                        style="left: 100px; top: 297.5px;">
+                        POLL_AND_PROCESS
+                    </div>
+                    <div class="state" 
+                        data-state="REBOOT_PENDING"
+                        onclick="handleStateClick('fota', 'REBOOT_PENDING')"
+                        style="left: 100px; top: 177.5px;">
+                        REBOOT_PENDING
+                    </div>
+                </div>
+                <div class="log" id="fota-log"></div>
+            </div>
+        </div>
+
+    </div>
+    <script>
+        const stateMachines = {"app": {"currentState": "INIT", "states": {"INIT": {"name": "INIT", "description": "Initial state where the module waits for time to be available", "parent": null}, "CLOUD_CONNECTED": {"name": "CLOUD_CONNECTED", "description": "Cloud connection is established and ready to send data", "parent": null}, "CLOUD_DISCONNECTED": {"name": "CLOUD_DISCONNECTED", "description": "Cloud connection is not established or paused", "parent": null}}, "transitions": [{"from": "INIT", "to": "CLOUD_CONNECTED", "triggers": ["CLOUD_CONNECTED_READY_TO_SEND"]}, {"from": "INIT", "to": "CLOUD_DISCONNECTED", "triggers": ["CLOUD_DISCONNECTED", "CLOUD_CONNECTED_PAUSED"]}, {"from": "CLOUD_DISCONNECTED", "to": "CLOUD_CONNECTED", "triggers": ["CLOUD_CONNECTED_READY_TO_SEND"]}, {"from": "CLOUD_CONNECTED", "to": "CLOUD_DISCONNECTED", "triggers": ["CLOUD_CONNECTED_PAUSED", "CLOUD_DISCONNECTED"]}]}, "fota": {"currentState": "RUNNING", "states": {"RUNNING": {"name": "RUNNING", "description": "During initialization, check for pending jobs and process them", "parent": null, "children": ["WAIT_FOR_CLOUD", "WAIT_FOR_TRIGGER", "POLL_AND_PROCESS", "REBOOT_PENDING"]}, "WAIT_FOR_CLOUD": {"name": "WAIT_FOR_CLOUD", "description": "FOTA module is initialized and waiting for cloud connection", "parent": "RUNNING"}, "WAIT_FOR_TRIGGER": {"name": "WAIT_FOR_TRIGGER", "description": "FOTA module is waiting for a trigger to poll for updates", "parent": "RUNNING"}, "POLL_AND_PROCESS": {"name": "POLL_AND_PROCESS", "description": "FOTA module is polling for updates and processing them", "parent": "RUNNING"}, "REBOOT_PENDING": {"name": "REBOOT_PENDING", "description": "nRF Cloud FOTA library has requested a reboot to complete an update", "parent": "RUNNING"}}, "transitions": [{"from": "RUNNING", "to": "WAIT_FOR_CLOUD", "triggers": []}, {"from": "WAIT_FOR_CLOUD", "to": "WAIT_FOR_TRIGGER", "triggers": ["CLOUD_CONNECTED_READY_TO_SEND"]}, {"from": "WAIT_FOR_TRIGGER", "to": "WAIT_FOR_CLOUD", "triggers": ["CLOUD_CONNECTED_PAUSED"]}, {"from": "WAIT_FOR_TRIGGER", "to": "POLL_AND_PROCESS", "triggers": ["TRIGGER_FOTA_POLL"]}, {"from": "POLL_AND_PROCESS", "to": "WAIT_FOR_TRIGGER", "triggers": ["FOTA_PRIV_PROCESSING_DONE"]}, {"from": "POLL_AND_PROCESS", "to": "REBOOT_PENDING", "triggers": ["FOTA_PRIV_REBOOT_PENDING"]}]}};
+
+        function log(module, message) {
+            const logDiv = document.getElementById(`${module}-log`);
+            logDiv.innerHTML += `${new Date().toLocaleTimeString()} - ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateState(module, newState) {
+            const machine = stateMachines[module];
+            
+            // Remove active class from all states in this module
+            document.querySelectorAll(`#${module} .state`).forEach(el => {
+                el.classList.remove('active');
+            });
+            
+            // Add active class to new state
+            const stateEl = document.querySelector(`#${module} .state[data-state="${newState}"]`);
+            if (stateEl) {
+                stateEl.classList.add('active');
+                machine.currentState = newState;
+                log(module, `State changed to: ${newState}`);
+                
+                // If this is a child state, activate the parent
+                const state = machine.states[newState];
+                if (state.parent) {
+                    const parentEl = document.querySelector(`#${module} .state[data-state="${state.parent}"]`);
+                    if (parentEl) {
+                        parentEl.classList.add('active');
+                    }
+                }
+            }
+        }
+
+        function handleStateClick(module, state) {
+            const machine = stateMachines[module];
+            const currentState = machine.currentState;
+            
+            // Find valid transitions from current state
+            const transition = machine.transitions.find(t => 
+                t.from === currentState && t.to === state
+            );
+            
+            if (transition) {
+                log(module, `Transition triggered by: ${transition.triggers[0]}`);
+                updateState(module, state);
+            } else {
+                log(module, `Invalid transition to: ${state}`);
+            }
+        }
+
+        function triggerEvent(module, event) {
+            const machine = stateMachines[module];
+            const currentState = machine.currentState;
+            
+            // Find transition for this event
+            const transition = machine.transitions.find(t => 
+                t.from === currentState && t.triggers.includes(event)
+            );
+            
+            if (transition) {
+                log(module, `Event triggered: ${event}`);
+                updateState(module, transition.to);
+            } else {
+                log(module, `Invalid event for current state: ${event}`);
+            }
+        }
+
+        function resetAll() {
+            Object.keys(stateMachines).forEach(module => {
+                const machine = stateMachines[module];
+                const initialState = Object.keys(machine.states)[0];
+                updateState(module, initialState);
+                
+                // Handle automatic transition from RUNNING to WAIT_FOR_CLOUD
+                if (module === 'fota' && initialState === 'RUNNING') {
+                    const autoTransition = machine.transitions.find(t => 
+                        t.from === 'RUNNING' && 
+                        t.to === 'WAIT_FOR_CLOUD' && 
+                        t.triggers.length === 0
+                    );
+                    if (autoTransition) {
+                        setTimeout(() => {
+                            updateState(module, 'WAIT_FOR_CLOUD');
+                            log(module, 'Automatic transition to WAIT_FOR_CLOUD');
+                        }, 500);
+                    }
+                }
+                
+                const logDiv = document.getElementById(`${module}-log`);
+                logDiv.innerHTML = '';
+                log(module, 'Reset to initial state');
+            });
+        }
+
+        // Initialize all state machines
+        resetAll();
+    </script>
+</body>
+</html>
