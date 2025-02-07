@@ -21,8 +21,8 @@ MFW_202_FILEPATH = "artifacts/mfw_nrf91x1_2.0.2.zip"
 TEST_APP_VERSION = "foo"
 TEST_APP_BIN = "artifacts/stable_version_jan_2025-update-signed.bin"
 
-DELTA_MFW_BUNDLEID = "MODEM*3471f88e*mfw_nrf91x1_2.0.2-FOTA-TEST"
-FULL_MFW_BUNDLEID = "MDM_FULL*124c2b20*mfw_nrf91x1_full_2.0.2"
+DELTA_MFW_BUNDLEID = "afc70765-989a-4180-bbb1-4d60063b0029"
+FULL_MFW_BUNDLEID = "d692915d-d978-4c77-ab02-f05f511971f9"
 NEW_MFW_DELTA_VERSION = "mfw_nrf91x1_2.0.2-FOTA-TEST"
 MFW_202_VERSION = "mfw_nrf91x1_2.0.2"
 
@@ -96,7 +96,7 @@ def run_fota_fixture(t91x_fota, hex_file):
             logger.info(f"Uploaded file {TEST_APP_BIN}: bundleId: {bundle_id}")
 
         try:
-            t91x_fota.data['job_id'] = t91x_fota.fota.create_fota_job(t91x_fota.device_id, bundle_id)
+            t91x_fota.data['job_id'] = t91x_fota.fota.create_fota_job(t91x_fota.device_id, bundle_id, auto_apply="true")
             t91x_fota.data['bundle_id'] = bundle_id
         except NRFCloudFOTAError as e:
             pytest.skip(f"FOTA create_job REST API error: {e}")
