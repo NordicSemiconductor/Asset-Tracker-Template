@@ -16,11 +16,40 @@
 
 #include <zephyr/kernel.h>
 
-#include "led_effect.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* momo */
+ZBUS_CHAN_DECLARE(
+	LED_CHAN
+);
+
+enum led_msg_type {
+	LED_RGB_SET,
+};
+
+struct led_msg {
+	enum led_msg_type type;
+
+	/** RGB values (0 to 255) */
+	uint8_t red;
+	uint8_t green;
+	uint8_t blue;
+
+	/** Duration of the RGB on/off cycle */
+	uint32_t duration_on_msec;
+	uint32_t duration_off_msec;
+
+	/** Number of on/off cycles (-1 indicates forever) */
+	int repetitions;
+};
+
+#define MSG_TO_LED_MSG(_msg) ((const struct led_msg *)_msg)
+
+
+
+
 
 #define LED_1 1
 #define LED_2 2
@@ -58,18 +87,6 @@ extern "C" {
 #define LED_POLL_MODE_COLOR		LED_COLOR_BLUE
 #define LED_ERROR_SYSTEM_FAULT_COLOR	LED_COLOR_RED
 #define LED_OFF_COLOR			LED_COLOR_OFF
-
-/**@brief LED state pattern definitions. */
-enum led_state {
-	LED_LTE_CONNECTING,
-	LED_POLL_MODE,
-	LED_LOCATION_SEARCHING,
-	LED_ERROR_SYSTEM_FAULT,
-	LED_ERROR_IRRECOVERABLE,
-	LED_CONFIGURED,
-	LED_OFF,
-	LED_PATTERN_COUNT,
-};
 
 #ifdef __cplusplus
 }
