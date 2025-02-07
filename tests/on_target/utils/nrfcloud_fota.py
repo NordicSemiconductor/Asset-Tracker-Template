@@ -191,7 +191,7 @@ class NRFCloudFOTA():
         logger.info(f"Deleled bundle ID: {bundle_id}")
         return True
 
-    def create_fota_job(self, device_id: str, bundle_id: str) -> str:
+    def create_fota_job(self, device_id: str, bundle_id: str, auto_apply: str) -> str:
         """
         Start a FOTA update process
 
@@ -199,6 +199,8 @@ class NRFCloudFOTA():
         :param bundle_id: Path to binary firmware image
         :return: nRFCloud jobId parameter"
         """
+        auto_apply = "true"
+        # data = json.dumps({"deviceIds": [device_id], "bundleId": bundle_id, "autoApply": auto_apply})
         data = json.dumps({"deviceIds": [device_id], "bundleId": bundle_id})
         return self._post("/fota-jobs", data=data).json()["jobId"]
 
