@@ -15,6 +15,10 @@
 #include "location.h"
 #include "network.h"
 
+/* Timer work structure for LED blinking */
+static struct k_work_delayable blink_work;
+static struct led_msg current_led_state;
+static bool led_is_on = false;
 
 #define PWM_LED0	DT_ALIAS(pwm_led0)
 #define PWM_LED1	DT_ALIAS(pwm_led1)
@@ -57,11 +61,19 @@ ZBUS_CHAN_DEFINE(LED_CHAN,
 /* Observe channels */
 ZBUS_CHAN_ADD_OBS(LED_CHAN, led, 0);
 
-static int pwm_out(const struct led_msg *led_msg)
+/* Forward declaration */
+static void blink_timer_handler(struct k_work *work);
+
+static int pwm_out(const struct led_msg *led_msg, bool force_off)
 {
 	int err;
 	
 	#define PWM_PERIOD PWM_USEC(255)
+
+	/* If force_off is true, turn off all LEDs regardless of led_msg values */
+	uint8_t red = force_off ? 0 : led_msg->red;
+	uint8_t green = force_off ? 0 : led_msg->green;
+	uint8_t blue = force_off ? 0 : led_msg->blue;
 	
 	if (!pwm_is_ready_dt(&pwm_led0)) {
 		LOG_ERR("Error: PWM device %s is not ready\n", pwm_led0.dev->name);
@@ -69,21 +81,21 @@ static int pwm_out(const struct led_msg *led_msg)
 	}
 
 	/* RED */
-	err = pwm_set_dt(&pwm_led0, PWM_PERIOD, PWM_USEC(led_msg->red));
+	err = pwm_set_dt(&pwm_led0, PWM_PERIOD, PWM_USEC(red));
 	if (err) {
 		LOG_ERR("pwm_set_dt, error:%d", err);
 		return err;
 	}
 
 	/* GREEN */
-	err = pwm_set_dt(&pwm_led1, PWM_PERIOD, PWM_USEC(led_msg->green));
+	err = pwm_set_dt(&pwm_led1, PWM_PERIOD, PWM_USEC(green));
 	if (err) {
 		LOG_ERR("pwm_set_dt, error:%d", err);
 		return err;
 	}
 
 	/* BLUE */
-	err = pwm_set_dt(&pwm_led2, PWM_PERIOD, PWM_USEC(led_msg->blue));
+	err = pwm_set_dt(&pwm_led2, PWM_PERIOD, PWM_USEC(blue));
 	if (err) {
 		LOG_ERR("pwm_set_dt, error:%d", err);
 		return err;
@@ -93,11 +105,48 @@ static int pwm_out(const struct led_msg *led_msg)
 }
 
 
+/* Timer work handler for LED blinking */
+static void blink_timer_handler(struct k_work *work)
+{
+	led_is_on = !led_is_on;
+	
+	/* Update LED state */
+	pwm_out(&current_led_state, !led_is_on);
+
+	/* Schedule next toggle */
+	uint32_t next_delay = led_is_on ? 
+		current_led_state.duration_on_msec : 
+		current_led_state.duration_off_msec;
+	
+	k_work_schedule(&blink_work, K_MSEC(next_delay));
+}
+
 /* Function called when there is a message received on a channel that the module listens to */
 void led_callback(const struct zbus_channel *chan)
 {
 	if (&LED_CHAN == chan) {
 		const struct led_msg *led_msg = zbus_chan_const_msg(chan);
-		pwm_out(led_msg);
+		
+		/* Cancel any existing blink timer */
+		k_work_cancel_delayable(&blink_work);
+		
+		/* Store the new LED state */
+		memcpy(&current_led_state, led_msg, sizeof(struct led_msg));
+		
+		/* Start with LED on */
+		led_is_on = true;
+		pwm_out(led_msg, false);
+		
+		/* Schedule first toggle */
+		k_work_schedule(&blink_work, K_MSEC(led_msg->duration_on_msec));
 	}
 }
+
+static int led_init(void)
+{
+	k_work_init_delayable(&blink_work, blink_timer_handler);
+	return 0;
+}
+
+/* Initialize module at SYS_INIT() */
+SYS_INIT(led_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
