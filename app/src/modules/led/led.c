@@ -19,6 +19,7 @@
 static struct k_work_delayable blink_work;
 static struct led_msg current_led_state;
 static bool led_is_on = false;
+static int remaining_cycles = 0;
 
 #define PWM_LED0	DT_ALIAS(pwm_led0)
 #define PWM_LED1	DT_ALIAS(pwm_led1)
@@ -113,6 +114,15 @@ static void blink_timer_handler(struct k_work *work)
 	/* Update LED state */
 	pwm_out(&current_led_state, !led_is_on);
 
+	/* If LED just turned off, we completed one cycle */
+	if (!led_is_on && remaining_cycles > 0) {
+		remaining_cycles--;
+		if (remaining_cycles == 0) {
+			/* We're done, don't schedule next toggle */
+			return;
+		}
+	}
+
 	/* Schedule next toggle */
 	uint32_t next_delay = led_is_on ? 
 		current_led_state.duration_on_msec : 
@@ -133,12 +143,17 @@ void led_callback(const struct zbus_channel *chan)
 		/* Store the new LED state */
 		memcpy(&current_led_state, led_msg, sizeof(struct led_msg));
 		
+		/* Set up repetitions - if -1, we use 0 to indicate infinite */
+		remaining_cycles = (led_msg->repetitions == -1) ? 0 : led_msg->repetitions;
+		
 		/* Start with LED on */
 		led_is_on = true;
 		pwm_out(led_msg, false);
 		
-		/* Schedule first toggle */
-		k_work_schedule(&blink_work, K_MSEC(led_msg->duration_on_msec));
+		/* Schedule first toggle if we have cycles to do */
+		if (remaining_cycles != 0 || led_msg->repetitions == -1) {
+			k_work_schedule(&blink_work, K_MSEC(led_msg->duration_on_msec));
+		}
 	}
 }
 

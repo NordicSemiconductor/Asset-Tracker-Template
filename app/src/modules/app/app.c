@@ -246,6 +246,7 @@ static void cloud_disconnected_entry(void *o)
 		.blue = 0,
 		.duration_on_msec = 1000,
 		.duration_off_msec = 1000,
+		.repetitions = 10,
 	};
 	err = zbus_chan_pub(&LED_CHAN, &led_msg, K_SECONDS(1));
 	if (err) {
@@ -289,6 +290,7 @@ static void cloud_connected_entry(void *o)
 		.blue = 0,
 		.duration_on_msec = 1000,
 		.duration_off_msec = 1000,
+		.repetitions = 10,
 	};
 
 	err = zbus_chan_pub(&LED_CHAN, &led_msg, K_SECONDS(1));
