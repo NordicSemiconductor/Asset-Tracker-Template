@@ -381,9 +381,9 @@ static void app_callback(const struct zbus_channel *chan)
 			app_state.interval_sec = config->update_interval;
 		}
 	} else if (&CLOUD_CHAN == chan) {
-		const enum cloud_msg_type *status = zbus_chan_const_msg(chan);
+		const struct cloud_msg *cloud_msg = zbus_chan_const_msg(chan);
 
-		app_state.status = *status;
+		app_state.status = cloud_msg->type;
 	} else if (&BUTTON_CHAN == chan) {
 		const int *button_number = zbus_chan_const_msg(chan);
 

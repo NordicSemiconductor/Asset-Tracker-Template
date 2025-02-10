@@ -48,7 +48,6 @@ ZBUS_CHAN_ADD_OBS(NETWORK_CHAN, location, 0);
 
 #define MAX_MSG_SIZE \
 	(MAX(sizeof(enum location_msg_type), \
-		 (MAX(sizeof(enum cloud_msg_type), \
 		     (MAX(sizeof(struct configuration), \
 		         sizeof(struct network_msg)))))))
 

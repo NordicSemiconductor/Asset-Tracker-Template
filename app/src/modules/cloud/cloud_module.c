@@ -72,11 +72,11 @@ ZBUS_CHAN_DEFINE(PAYLOAD_CHAN,
 );
 
 ZBUS_CHAN_DEFINE(CLOUD_CHAN,
-		 enum cloud_msg_type,
+		 struct cloud_msg,
 		 NULL,
 		 NULL,
 		 ZBUS_OBSERVERS_EMPTY,
-		 CLOUD_DISCONNECTED
+		 ZBUS_MSG_INIT(.type = CLOUD_DISCONNECTED)
 );
 
 /* Enumerator to be used in privat cloud channel */
@@ -332,13 +332,15 @@ static void state_running_run(void *o)
 static void state_disconnected_entry(void *o)
 {
 	int err;
-	enum cloud_msg_type cloud_status = CLOUD_DISCONNECTED;
+	struct cloud_msg cloud_msg = {
+		.type = CLOUD_DISCONNECTED,
+	};
 
 	ARG_UNUSED(o);
 
 	LOG_DBG("%s", __func__);
 
-	err = zbus_chan_pub(&CLOUD_CHAN, &cloud_status, K_SECONDS(1));
+	err = zbus_chan_pub(&CLOUD_CHAN, &cloud_msg, K_SECONDS(1));
 	if (err) {
 		LOG_ERR("zbus_chan_pub, error: %d", err);
 		SEND_FATAL_ERROR();
@@ -486,13 +488,15 @@ static void shadow_get(bool delta_only)
 static void state_connected_ready_entry(void *o)
 {
 	int err;
-	enum cloud_msg_type cloud_status = CLOUD_CONNECTED_READY_TO_SEND;
+	struct cloud_msg cloud_msg = {
+		.type = CLOUD_CONNECTED_READY_TO_SEND,
+	};
 
 	ARG_UNUSED(o);
 
 	LOG_DBG("%s", __func__);
 
-	err = zbus_chan_pub(&CLOUD_CHAN, &cloud_status, K_SECONDS(1));
+	err = zbus_chan_pub(&CLOUD_CHAN, &cloud_msg, K_SECONDS(1));
 	if (err) {
 		LOG_ERR("zbus_chan_pub, error: %d", err);
 		SEND_FATAL_ERROR();
@@ -624,13 +628,15 @@ static void state_connected_ready_run(void *o)
 static void state_connected_paused_entry(void *o)
 {
 	int err;
-	enum cloud_msg_type cloud_status = CLOUD_CONNECTED_PAUSED;
+	struct cloud_msg cloud_msg = {
+		.type = CLOUD_CONNECTED_PAUSED,
+	};
 
 	ARG_UNUSED(o);
 
 	LOG_DBG("%s", __func__);
 
-	err = zbus_chan_pub(&CLOUD_CHAN, &cloud_status, K_SECONDS(1));
+	err = zbus_chan_pub(&CLOUD_CHAN, &cloud_msg, K_SECONDS(1));
 	if (err) {
 		LOG_ERR("zbus_chan_pub, error: %d", err);
 		SEND_FATAL_ERROR();
